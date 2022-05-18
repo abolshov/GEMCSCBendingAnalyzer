@@ -102,6 +102,7 @@ void doFit(bool doDx, bool doDy, bool doDphiz) {
 int main() {
   TFile *tf = new TFile("input.root");							//Name of input root file
   TTree *tmpTr = (TTree*)tf->Get("analyzer/ME11Seg_Prop");				//TTree directory in the ntuple MAKE SURE TO USE CORRECT PROPAGATION TREE
+  //TTree *tmpTr = (TTree*)tf->Get("ME11ana/Inner_Prop");					//Tree name for ME11 analyzer ****
 
   TFile* tmpTF = new TFile("tmp1.root","recreate");					//tmp files created to stop memory errors
   std::cout << "Copying Tree" << std::endl;
@@ -109,7 +110,7 @@ int main() {
   std::cout << "Copied" << std::endl;
   std::cout << "Closing input" << std::endl;
   tf->Close();
-  int nCuts = 20;							//Number of cuts to fit on, each cut reduces the total sample remaining by 2 (n/2, 3n/4, 7n/8, 15n/16, ...)
+  int nCuts = 2;							//Number of cuts to fit on, each cut reduces the total sample remaining by 2 (n/2, 3n/4, 7n/8, 15n/16, ...)
   for (int nCut = 1; nCut < nCuts; nCut++) {				//0 is the initial misalignment, start fitter counter at 1
     std::cout << "Starting cut number " << nCut << std::endl;
     std::cout << "Current number of entries = " << cutEn->GetEntries() << std::endl;

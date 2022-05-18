@@ -74,14 +74,14 @@ plot1Dhist("muon_pt", "Muon pt", event, [200, 0, 200], "muon pt [GeV]", "Entries
 
 #Example of 1D efficiency#
 #plot1Defficiency("branch", "Title of plot", event, [xbins, xlow, xhigh], "xaxis title", "yaxis title", "total cut", "passed cut", "subdir", Save?)#
-plot1Defficiency("prop_location[2]", "Chamber Efficiency", event, [37, 0, 37], "Chamber", "Eff", "has_prop_CSC == 1 && prop_roll_GE11 < 10 && hasME11", "has_rechit_CSC_GE11 == 1 && abs(RdPhi_CSC_GE11) < 5 && has_prop_CSC == 1 && prop_roll_GE11 < 10 && hasME11", "makeEffi", True)
+plot1Defficiency("prop_location[2]", "Chamber Efficiency", event, [37, 0, 37], "Chamber", "Eff", "has_prop == 1 && prop_location[4] < 10 && hasME11", "has_rechit == 1 && abs(RdPhi) < 5 && has_prop == 1 && prop_location[4] < 10 && hasME11", "makeEffi", True)
 
 #Example of 2D hist / chamber&region#
 #plot2Dhist("ybranch:xbranch", "Title of plot", event, [xbins, xlow, xhigh, ybins, ylow, yhigh], "x title", "y title", "cuts1 && cuts2", "subdir", Save?)
 for region in [-1, 1]:
   for chamber in range(1, 37):
-    plot2Dhist("prop_CSC_GP_GE11[1]:prop_CSC_GP_GE11[0]", "GEM Propagation MWGR5 Global region {i} chamber {j}".format(i = region, j = chamber), event, [100, -300, 300, 100, -300, 300], "prop x [cm]", "prop y [cm]", "prop_CSC_GP_GE11[1] < 1000 && prop_CSC_GP_GE11[0] < 1000 && prop_location[0] == {i} && prop_location[2] == {j}".format(i = region, j = chamber), "prop_2D", True)
+    plot2Dhist("prop_GP[1]:prop_GP[0]", "GEM Propagation Global region {i} chamber {j}".format(i = region, j = chamber), event, [100, -300, 300, 100, -300, 300], "prop x [cm]", "prop y [cm]", "prop_GP[1] < 1000 && prop_GP[0] < 1000 && prop_location[0] == {i} && prop_location[2] == {j}".format(i = region, j = chamber), "prop_2D", True)
 
 #Example of 2D profile#
 #plot2Dprofile("zbranch:ybranch:xbranch", "Title of plot", event, [xbins, xlow, xhigh, ybins, ylow, yhigh], "x title", "y title", "cuts1 && cuts2", "subdir", Save?)
-plot2Dprofile("RdPhi_CSC_GE11:prop_CSC_GP_GE11[1]:prop_CSC_GP_GE11[0]", "Profile Test", event, [300, -300, 300, 300, -300, 300, -4, 4], "Global x", "Global y", "has_prop_CSC && abs(RdPhi_CSC_GE11) < 100", "example", True)
+plot2Dprofile("RdPhi:prop_GP[1]:prop_GP[0]", "Profile Test", event, [300, -300, 300, 300, -300, 300, -4, 4], "Global x", "Global y", "has_prop && abs(RdPhi) < 100", "example", True)

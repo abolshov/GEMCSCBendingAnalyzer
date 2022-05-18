@@ -8,7 +8,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -79,7 +79,7 @@ struct MuonData
   float track_chi2; float track_ndof; int n_ME11_segment; int which_track;
   int hasME11; int hasME11RecHit; int hasME11A; int hasME11ARecHit;
   int nCSCSeg; int nDTSeg; int nME11RecHits; float ME11_BunchX; int ME11_strip;
-  int ME11_location[5];
+  int ME11_location[5]; int inner_or_outer_mom;
   //Rechit Info//////////////////////////////////////////////////////
   float rechit_GP[3]; float rechit_LP[3];
   float rechit_yroll; float rechit_localphi_rad; float rechit_localphi_deg;
@@ -116,6 +116,7 @@ void MuonData::init()
   for(int i=0; i<5; ++i){
     ME11_location[i] = 999999;
   }
+  inner_or_outer_mom = 99999;
   //Rechit Info//////////////////////////////////////////////////////
   for(int i=0; i<3; ++i){
     rechit_GP[i] = 999999; rechit_LP[i] = 999999;
@@ -175,6 +176,7 @@ TTree* MuonData::book(TTree *t, int prop_type){
   t->Branch("nME11RecHits", &nME11RecHits); t->Branch("ME11_BunchX", &ME11_BunchX);
   t->Branch("ME11_strip", &ME11_strip);
   t->Branch("ME11_location", &ME11_location, "ME11_location[5] (end, sta, ring, cha, lay)/I");
+  t->Branch("inner_or_outer_mom", &inner_or_outer_mom, "inner_or_outer_mom (0 = inner, 1 = outer)/I");
   //Rechit Info//////////////////////////////////////////////////////
   t->Branch("rechit_GP", &rechit_GP, "rechit_GP[3] (x,y,z)/F");
   t->Branch("rechit_LP", &rechit_LP, "rechit_LP[3] (x,y,z)/F");
@@ -206,7 +208,7 @@ TTree* MuonData::book(TTree *t, int prop_type){
 }
 
 
-class analyzer : public edm::EDAnalyzer {
+class analyzer : public edm::one::EDAnalyzer<> {
 public:
   explicit analyzer(const edm::ParameterSet&);
   ~analyzer(){};
@@ -253,10 +255,19 @@ private:
 
   bool isMC;
   const CSCSegment *ME11_segment;
+
+  const edm::ESGetToken<GEMGeometry, MuonGeometryRecord> gemGeomToken_;
+  const edm::ESGetToken<CSCGeometry, MuonGeometryRecord> cscGeomToken_;
+  const edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> ttkToken_;
+  const edm::ESGetToken<GlobalTrackingGeometry, GlobalTrackingGeometryRecord> geomToken_;
 };
 
 
 analyzer::analyzer(const edm::ParameterSet& iConfig)
+  : gemGeomToken_(esConsumes()),
+    cscGeomToken_(esConsumes()),
+    ttkToken_(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))),
+    geomToken_(esConsumes())
 {
   cout << "Begin analyzer" << endl;
   edm::ParameterSet serviceParameters = iConfig.getParameter<edm::ParameterSet>("ServiceParameters");
@@ -283,12 +294,15 @@ analyzer::analyzer(const edm::ParameterSet& iConfig)
 
 void
 analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup){
-  iSetup.get<MuonGeometryRecord>().get(GEMGeometry_);
-  iSetup.get<MuonGeometryRecord>().get(CSCGeometry_);
+  //iSetup.get<MuonGeometryRecord>().get(GEMGeometry_);
+  //iSetup.get<MuonGeometryRecord>().get(CSCGeometry_);
+  //iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",ttrackBuilder_);
+  //iSetup.get<GlobalTrackingGeometryRecord>().get(theTrackingGeometry);
 
-  iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",ttrackBuilder_);
- 
-  iSetup.get<GlobalTrackingGeometryRecord>().get(theTrackingGeometry);
+  GEMGeometry_ = &iSetup.getData(gemGeomToken_);
+  CSCGeometry_ = &iSetup.getData(cscGeomToken_);
+  ttrackBuilder_ = &iSetup.getData(ttkToken_);
+  theTrackingGeometry = &iSetup.getData(geomToken_);
 
   theService_->update(iSetup);
   auto propagator = theService_->propagator("SteppingHelixPropagatorAny");
@@ -297,7 +311,7 @@ analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup){
   if (! iEvent.eventAuxiliary().isRealData()) isMC = true;
   iEvent.getByToken(gemRecHits_, gemRecHits);
   if (isMC) {
-    iEvent.getByToken(gemSimHits_, gemSimHits); 
+    iEvent.getByToken(gemSimHits_, gemSimHits);
   }
   edm::Handle<View<reco::Muon> > muons;
   if (! iEvent.getByToken(muons_, muons)) return;
@@ -306,16 +320,16 @@ analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup){
   edm::Handle<CSCSegmentCollection> cscSegments;
   if (! iEvent.getByToken(cscSegments_, cscSegments)){std::cout << "Bad segments" << std::endl;}
 
-  cout << "New! EvtNumber = " << iEvent.eventAuxiliary().event() << " LumiBlock = " << iEvent.eventAuxiliary().luminosityBlock() << " RunNumber = " << iEvent.run() << endl;
+  if (debug) cout << "New! EvtNumber = " << iEvent.eventAuxiliary().event() << " LumiBlock = " << iEvent.eventAuxiliary().luminosityBlock() << " RunNumber = " << iEvent.run() << endl;
 
   for (size_t i = 0; i < muons->size(); ++i){
     edm::RefToBase<reco::Muon> muRef = muons->refAt(i);
     const reco::Muon* mu = muRef.get();
     //if (mu->pt() < 2.0) continue;  //can apply a pt cut later
     if (not mu->standAloneMuon()) continue;
-    cout << "new standalone" << endl;
+    if (debug) cout << "new standalone" << endl;
     for(auto it = std::begin(prop_list); it != std::end(prop_list); ++it){
-      std::cout << "prop " << *it << "about to start propagate" << std::endl;
+      if (debug) std::cout << "prop " << *it << "about to start propagate" << std::endl;
       int prop_type = *it;
       propagate(mu, prop_type, iEvent, i);
     }
@@ -369,7 +383,7 @@ analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup){
 
     std::cout << "SEGMENT COLLECTION" << std::endl;
     std::vector<int> list_of_collection = {};
-    for(CSCSegmentCollection::const_iterator segmentCSC = cscSegments->begin(); segmentCSC != cscSegments->end(); segmentCSC++){  
+    for(CSCSegmentCollection::const_iterator segmentCSC = cscSegments->begin(); segmentCSC != cscSegments->end(); segmentCSC++){
       auto cscDetID = (segmentCSC)->cscDetId();
       std::cout << cscDetID.endcap() << cscDetID.station() << cscDetID.ring() << cscDetID.chamber() << std::endl;
       if(cscDetID.station() == 1 and (cscDetID.ring() == 1 or cscDetID.ring() == 4)){
@@ -438,7 +452,7 @@ void analyzer::CSCSegmentCounter(const reco::Muon* mu, MuonData& data_){
         uint16_t RecHitSubDet = RecHitId.subdetId();
         if (RecHitSubDet == (uint16_t)MuonSubdetId::CSC){
           if (CSCDetId(RecHitId).station() == 1 and CSCDetId(RecHitId).ring() == 1 and RecHit->dimension() == 4){
-            tmp_ME11_counter++; 
+            tmp_ME11_counter++;
             if (debug){std::cout << "isCosmic = False! Getting ME11 Segment" << std::endl;}
             RecSegment* Rec_segment = (RecSegment*)RecHit;
             ME11_segment = (CSCSegment*)Rec_segment;
@@ -468,8 +482,9 @@ void analyzer::CSCSegmentCounter(const reco::Muon* mu, MuonData& data_){
 }
 void analyzer::propagate_to_GEM(const reco::Muon* mu, const GEMEtaPartition* ch, int prop_type, bool &tmp_has_prop, GlobalPoint &pos_GP, MuonData& data_){
   const reco::Track* Track;
-  reco::TransientTrack track;
+  reco::TransientTrack ttrack;
   tmp_has_prop = false;
+  int tmp_inner_or_outer_mom = 99999;
   const BoundPlane& bps(ch->surface());
   auto propagator = theService_->propagator("SteppingHelixPropagatorAny");
   const auto& etaPart_ch = GEMGeometry_->etaPartition(ch->id());
@@ -478,22 +493,22 @@ void analyzer::propagate_to_GEM(const reco::Muon* mu, const GEMEtaPartition* ch,
   if(prop_type == 1 or prop_type == 2){
     if(prop_type == 1){
       Track = mu->outerTrack().get();
-      track = ttrackBuilder_->build(Track);
+      ttrack = ttrackBuilder_->build(Track);
     }
     if(prop_type == 2){
       Track = mu->track().get();
-      track = ttrackBuilder_->build(Track);
+      ttrack = ttrackBuilder_->build(Track);
     }
-    float inner_delta = abs(track.innermostMeasurementState().globalPosition().z() - GEMGeometry_->etaPartition(ch->id())->toGlobal(etaPart_ch->centreOfStrip(etaPart_ch->nstrips()/2)).z());
-    float outer_delta = abs(track.outermostMeasurementState().globalPosition().z() - GEMGeometry_->etaPartition(ch->id())->toGlobal(etaPart_ch->centreOfStrip(etaPart_ch->nstrips()/2)).z());
+    float inner_delta = abs(ttrack.innermostMeasurementState().globalPosition().z() - GEMGeometry_->etaPartition(ch->id())->toGlobal(etaPart_ch->centreOfStrip(etaPart_ch->nstrips()/2)).z());
+    float outer_delta = abs(ttrack.outermostMeasurementState().globalPosition().z() - GEMGeometry_->etaPartition(ch->id())->toGlobal(etaPart_ch->centreOfStrip(etaPart_ch->nstrips()/2)).z());
     float used_delta = 0;
     if (inner_delta < outer_delta){
-      tsos_seg = track.innermostMeasurementState(); tsos_ch = propagator->propagate(tsos_seg, ch->surface()); used_delta = inner_delta;
+      tsos_seg = ttrack.innermostMeasurementState(); tsos_ch = propagator->propagate(tsos_seg, ch->surface()); used_delta = inner_delta;
       if(prop_type == 1){data_.which_track = 1;}
       else{data_.which_track = 0;}
     }
     else{
-      tsos_seg = track.outermostMeasurementState(); tsos_ch = propagator->propagate(tsos_seg, ch->surface()); used_delta = outer_delta;
+      tsos_seg = ttrack.outermostMeasurementState(); tsos_ch = propagator->propagate(tsos_seg, ch->surface()); used_delta = outer_delta;
       if(prop_type == 1){data_.which_track = 0;}
       else{data_.which_track = 1;}
     }
@@ -514,7 +529,19 @@ void analyzer::propagate_to_GEM(const reco::Muon* mu, const GEMEtaPartition* ch,
     const GeomDet* segDet = theTrackingGeometry->idToDet(segDetId);
     LocalVector momentum_at_surface = ME11_segment->localDirection(); //No momentum for segments
     if (Track != 0){
+      tmp_inner_or_outer_mom = 0;
       momentum_at_surface = momentum_at_surface*(Track->outerP()); //If innerTrack exists, use momentum
+    }
+    else{
+      Track = mu->outerTrack().get();
+      if (Track != 0){
+        tmp_inner_or_outer_mom = 1;
+        momentum_at_surface = momentum_at_surface*(Track->outerP()); //If no innerTrack, use outerTrack
+      }
+      else{
+        if(debug){std::cout << "No tracks!" << std::endl;}
+        return;
+      }
     }
     LocalTrajectoryParameters param(ME11_segment->localPosition(), momentum_at_surface, mu->charge());
     AlgebraicSymMatrix mat(5,0);
@@ -548,6 +575,7 @@ void analyzer::propagate_to_GEM(const reco::Muon* mu, const GEMEtaPartition* ch,
     data_.has_prop = tmp_has_prop;
     data_.has_fidcut = fidcutCheck(tmp_prop_LP.y(), ((3.14159265/2.) - local_phi)*(180./3.14159265), ch);
     data_.prop_location[0] = ch->id().region(); data_.prop_location[1] = ch->id().station(); data_.prop_location[2] = ch->id().chamber(); data_.prop_location[3] = ch->id().layer(); data_.prop_location[4] = ch->id().roll();
+    data_.inner_or_outer_mom = tmp_inner_or_outer_mom;
   }
 }
 void analyzer::GEM_rechit_matcher(const GEMEtaPartition* ch, LocalPoint prop_LP, MuonData& data_){
@@ -659,6 +687,7 @@ void analyzer::propagate(const reco::Muon* mu, int prop_type, const edm::Event& 
   const reco::Track* Track;
   reco::TransientTrack ttTrack;
   TTree* tree;
+  if (debug) std::cout << "Getting tree, track, tttrack" << std::endl;
   if(prop_type == 1){ //If want to swith to global, use mu->globalTrack().get()
     tree = CSC_tree;
     if(!(mu->outerTrack().isNonnull())){return;}
@@ -688,6 +717,7 @@ void analyzer::propagate(const reco::Muon* mu, int prop_type, const edm::Event& 
     std::cout << "Bad prop type, failure." << std::endl; return;
   }
   if(!ttTrack.isValid()){std::cout << "BAD EVENT! NO TRACK" << std::endl;}
+  if (debug) std::cout << "Got track, init data" << std::endl;
   data_.init();
   //Muon Info//////////////////////////////////////////////////////
   data_.muon_charge = mu->charge(); data_.muon_pt = mu->pt(); data_.muon_eta = mu->eta(); data_.muon_momentum = mu->momentum().mag2();
@@ -695,10 +725,12 @@ void analyzer::propagate(const reco::Muon* mu, int prop_type, const edm::Event& 
   data_.runNum = iEvent.run();
   //Track Info//////////////////////////////////////////////////////
   data_.track_chi2 = Track->chi2(); data_.track_ndof = Track->ndof();
+  if (debug) std::cout << "Counting segments" << std::endl;
   CSCSegmentCounter(mu, data_);
   if(prop_type == 3 and data_.hasME11 != 1){return;}
   //which_track
   //Propagation Info//////////////////////////////////////////////////////
+  if (debug) std::cout << "Starting chamber loop" << std::endl;
   for (const auto& ch : GEMGeometry_->etaPartitions()) {
     if (ch->id().station() != 1) continue; //Only takes GE1/1
     GlobalPoint tmp_prop_GP; bool tmp_has_prop = 0;
