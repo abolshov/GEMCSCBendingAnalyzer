@@ -216,15 +216,15 @@ void DT_tbma::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup){
   iEvent.getByToken(dt1DRecHits_, dt1DRecHits);
 
 
-  if (debug) cout << "New! EvtNumber = " << iEvent.eventAuxiliary().event() << " LumiBlock = "
-                  << iEvent.eventAuxiliary().luminosityBlock() << " RunNumber = " << iEvent.run() << endl;
+  // if (debug) cout << "New! EvtNumber = " << iEvent.eventAuxiliary().event() << " LumiBlock = "
+  //                 << iEvent.eventAuxiliary().luminosityBlock() << " RunNumber = " << iEvent.run() << endl;
 
   for (size_t i = 0; i < muons->size(); ++i){
     edm::RefToBase<reco::Muon> muRef = muons->refAt(i);
     const reco::Muon* mu = muRef.get();
     //if (mu->pt() < 2.0) continue;  //can apply a pt cut later
     if (not mu->standAloneMuon()) continue;
-    if (debug) cout << "new standalone" << endl;
+    // if (debug) cout << "new standalone" << endl;
     propagate(mu, iEvent, i);
   }
 }
@@ -237,7 +237,7 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
   if(!(mu->track().isNonnull())){return;}
   Track = mu->track().get();
   ttTrack = ttrackBuilder_->build(Track);
-  if(!ttTrack.isValid()){std::cout << "BAD EVENT! NO TRACK" << std::endl;}
+  // if(!ttTrack.isValid()){std::cout << "BAD EVENT! NO TRACK" << std::endl;}
   data_.init();
   //Muon Info//////////////////////////////////////////////////////
   data_.muon_charge = mu->charge();
@@ -256,7 +256,7 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
   TrajectoryStateOnSurface tsos_on_chamber;
   //Find outer-most tracker point
   int incoming_or_outgoing = 0;
-  std::cout << "TTTrack has " << ttTrack.recHitsSize() << " hits" << std::endl;
+  // std::cout << "TTTrack has " << ttTrack.recHitsSize() << " hits" << std::endl;
   if (ttTrack.outermostMeasurementState().globalPosition().perp() > ttTrack.innermostMeasurementState().globalPosition().perp()){
     tsos_from_tracker = ttTrack.outermostMeasurementState();
     incoming_or_outgoing = 1;
@@ -266,7 +266,7 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
     incoming_or_outgoing = -1;
   }
   data_.which_track = incoming_or_outgoing;
-  std::cout << "Global position is " << tsos_from_tracker.globalPosition() << '\n';
+  // std::cout << "Global position is " << tsos_from_tracker.globalPosition() << '\n';
   //tree->Fill();
 
   //Get DT Segments////////////////////////////////////////////////
@@ -280,7 +280,7 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
           AllDTSegments_Matches.push_back(DTSeg->clone());
       }
   }
-  std::cout << "Size of DT segment is " << AllDTSegments_Matches.size() << std::endl;
+  // std::cout << "Size of DT segment is " << AllDTSegments_Matches.size() << std::endl;
 
 // for (auto dtSeg: AllDTSegments_Matches) {
 //     std::cout << "rechit size is " << (dtSeg->recHits()).size() << std::endl;
@@ -324,18 +324,18 @@ for (auto dtSeg: AllDTSegments_Matches) {
             const DTSuperLayerId superLayerId(hitId.rawId());
 		    const DTLayerId layerId(hitId.rawId());
             DTChamberId chamberId = DTChamberId(hitId);
-            cout << "Chamber ID is " << chamberId.wheel() << " " << chamberId.station() << " " << chamberId.sector() << std::endl;
+            // cout << "Chamber ID is " << chamberId.wheel() << " " << chamberId.station() << " " << chamberId.sector() << std::endl;
 
             //Extrapolate the propagated position for residual
 			TrajectoryStateOnSurface tsos_on_chamber;
 			tsos_on_chamber = propagator->propagate( tsos_from_tracker, DTGeometry_->idToDet(hitId)->surface() );
 
-            if ( tsos_on_chamber.isValid() ) {
-			    std::cout << " extrapolation localPosition()"
-				<< " x: " << tsos_on_chamber.localPosition().x()
-				<< " y: " << tsos_on_chamber.localPosition().y()
-				<< " z: " << tsos_on_chamber.localPosition().z() << std::endl;
-		    }
+            // if ( tsos_on_chamber.isValid() ) {
+			//     std::cout << " extrapolation localPosition()"
+			// 	<< " x: " << tsos_on_chamber.localPosition().x()
+			// 	<< " y: " << tsos_on_chamber.localPosition().y()
+			// 	<< " z: " << tsos_on_chamber.localPosition().z() << std::endl;
+		    // }
 
             // filling TTree
             LocalPoint hit_LP = itDTHits1D->localPosition();
@@ -358,8 +358,8 @@ for (auto dtSeg: AllDTSegments_Matches) {
             data_.prop_location[2] = chamberId.sector();
             // data_.prop_location[3] = dtDetId.superlayer();
 
-            cout << "superlayer ID " << superLayerId.superLayer() << " " << layerId.layer() << std::endl;
-//
+            // cout << "superlayer ID " << superLayerId.superLayer() << " " << layerId.layer() << std::endl;
+
             data_.rechit_GP[0] = hit_GP.x();
             data_.rechit_GP[1] = hit_GP.y();
             data_.rechit_GP[2] = hit_GP.z();
@@ -375,16 +375,32 @@ for (auto dtSeg: AllDTSegments_Matches) {
                 double residual_dy = prop_LP.y() - hit_LP.y();
                 data_.dx = 99999;
                 data_.dy = residual_dy;
-                cout << "residual dy is" << " " << residual_dy << std::endl;
+                // cout << "residual dy is" << " " << residual_dy << std::endl;
+                if (chamberId.station() == 4) {
+                    cout << "WARNING! STATION 4!" << std::endl;
+                    cout << "dy WAS CALCULATED!" << std::endl;
+                }
+                tree->Fill();
             }
 
             if ((superLayerId.superlayer() == 1 || superLayerId.superlayer() == 3) && vDTSeg1D.size() >= 6) {
-                double residual_dx = prop_LP.y() - hit_LP.y();
+                double residual_dx = prop_LP.x() - hit_LP.x();
                 data_.dx = residual_dx;
                 data_.dy = 99999;
-                cout << "residual dx is" << " " << residual_dx << std::endl;
+                // cout << "residual dx is" << " " << residual_dx << std::endl;
+                if (chamberId.station() == 4 && chamberId.sector() == 9 && chamberId.wheel() == 0) {
+                    cout << "**** WARNING! STATION 4! ****" << std::endl;
+                    cout << "superlayer ID is " << superLayerId.superlayer() << std::endl;
+                    cout << "Chamber ID is " << chamberId.wheel() << " " << chamberId.station() << " " << chamberId.sector() << std::endl;
+                    cout << "local positions of hits are " << hit_LP.x() << " " << hit_LP.y() << " " << hit_LP.z() << std::endl;
+                    cout << "local prop positions are " << prop_LP.x() << " " << prop_LP.y() << " " << prop_LP.z() << std::endl;
+                    cout << "residual is " << residual_dx << std::endl;
+                    cout << "muon index is " << data_.muonIdx << std::endl;
+                    cout << "**************************" << std::endl;
+                }
+                tree->Fill();
             }
-            tree->Fill();
+            // tree->Fill();
         }
     }
 // fill chamber-level tree here

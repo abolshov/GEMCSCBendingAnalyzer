@@ -54,7 +54,7 @@ if misalign:
 ################################
 
 
-process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase1_2021_design', '')
+process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run3_data_prompt', '')
 #process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run3_data_prompt', '') #Antonello Comparison
 
 process.MessageLogger.cerr.FwkReport.reportEvery = 5000
@@ -83,11 +83,13 @@ process.source = cms.Source("PoolSource",
 			)
 				)
 
-testfile = "/eos/cms/store/express/Commissioning2022/ExpressCosmics/FEVT/Express-v1/000/348/776/00000/475b2a2f-673c-4104-a360-72ddee06377f.root"
-testfile = 'root://eoscms.cern.ch//eos/cms/store/express/Commissioning2022/ExpressCosmics/FEVT/Express-v1/000/349/347/00000/304f8f34-433f-4ea9-9df7-e32f769ad904.root'
-testfile = "013a0b3d-c139-4f5d-baaa-d7bc01ef886b.root"
-testfile = "/afs/cern.ch/user/d/daebi/public/forArtem/step2_400.root"
-outfile = "DT_tbma.root"
+# input file
+# testfile = "/eos/cms/store/express/Commissioning2022/ExpressCosmics/FEVT/Express-v1/000/348/776/00000/475b2a2f-673c-4104-a360-72ddee06377f.root"
+# testfile = 'root://eoscms.cern.ch//eos/cms/store/express/Commissioning2022/ExpressCosmics/FEVT/Express-v1/000/349/347/00000/304f8f34-433f-4ea9-9df7-e32f769ad904.root'
+# testfile = "013a0b3d-c139-4f5d-baaa-d7bc01ef886b.root"
+# testfile = "/afs/cern.ch/user/d/daebi/public/forArtem/step2_400.root"
+testfile = "/eos/cms/store/express/Commissioning2022/ExpressCosmics/FEVT/Express-v1/000/348/773/00001/c90a5a91-6c06-4fb3-8564-eb3ae7772d01.root"
+outfile = "DT_tbma_cosmics.root"
 process.source.fileNames.append('file:'+testfile)
 
 process.options = cms.untracked.PSet(
