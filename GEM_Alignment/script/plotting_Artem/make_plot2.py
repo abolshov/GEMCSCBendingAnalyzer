@@ -1,6 +1,6 @@
 import ROOT, array, math
 
-myFile = ROOT.TFile.Open("DTPlots/DT_tbma.root", "READ")
+imyFile = ROOT.TFile.Open("DTPlots/DT_tbma_cosmics.root", "READ")
 #myFile = ROOT.TFile("CRUZET_march15.ROOT")
 myTree = myFile.Get("DT_tbma/Inner_Prop")
 
