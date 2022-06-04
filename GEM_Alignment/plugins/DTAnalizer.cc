@@ -68,6 +68,10 @@ struct DT_tbma_data_sectorLevel {
     float res_dydz;
     float prop_local_x;
     float prop_local_y;
+    // float prop_gp[3];
+    float global_z;
+    float prop_phi;
+    int location[3];
     int charge;
     float pz;
     float pt;
@@ -81,6 +85,14 @@ void DT_tbma_data_sectorLevel::init() {
     res_dydz = 9999.0;
     prop_local_x = 9999.0;
     prop_local_y = 9999.0;
+    // for (size_t i = 0; i < 3; i++) {
+    //     prop_gp[i] = 9999.0;
+    // }
+    prop_phi = 9999.0;
+    for (size_t i = 0; i < 3; i++) {
+        location[i] = 9999;
+    }
+    global_z = 9999.0;
     charge = 9999;
     pz = 9999.0;
     pt = 9999.0;
@@ -96,6 +108,10 @@ TTree* DT_tbma_data_sectorLevel::book(TTree* t) {
     t->Branch("res_dydz", &res_dydz);
     t->Branch("prop_local_x", &prop_local_x);
     t->Branch("prop_local_y", &prop_local_y);
+    // t->Branch("prop_gp", &prop_gp, "prop_gp[3] (x,y,z)/F");
+    t->Branch("prop_phi", &prop_phi);
+    t->Branch("location", &location, "location[3] (wheel, station, sector)/I");
+    t->Branch("global_z", &global_z);
     t->Branch("charge", &charge);
     t->Branch("pz", &pz);
     t->Branch("pt", &pt);
@@ -248,7 +264,7 @@ DT_tbma::DT_tbma(const edm::ParameterSet& iConfig)
 
 
     Tracker_tree = data_.book(Tracker_tree);
-    Tracker_tree_sectorLevel = data_.book(Tracker_tree_sectorLevel);
+    Tracker_tree_sectorLevel = data_sectorLevel_.book(Tracker_tree_sectorLevel);
 
 }
 
@@ -368,21 +384,30 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
     		  // get 1D segment from 2D segment
               auto vDTSeg1D = itDTSeg2D->recHits();
 
-              float sum_weight = 0;
-              float sum_weight_propz = 0;
-              float sum_weight_residual_dx = 0;
-              float sum_weight_residual_dy = 0;
-              float sum_weight_propz_propz = 0;
+              float sum_weight = 0.0;
+              float sum_weight_propz = 0.0;
+              float sum_weight_residual_dx = 0.0;
+              float sum_weight_residual_dy = 0.0;
+              float sum_weight_propz_propz = 0.0;
               float sum_weight_propz_residual_dx = 0;
               float sum_weight_propz_residual_dy = 0;
               // int nRecHits_in_smoothing = 0; // Testing the TBMA method of CHAMBER RESIDUALS including slope
-              float sum_weight_propx = 0;
-              float sum_weight_propz_propx = 0;
-              float sum_weight_propy = 0;
-              float sum_weight_propz_propy = 0;
+              float sum_weight_propx = 0.0;
+              float sum_weight_propz_propx = 0.0;
+              float sum_weight_propy = 0.0;
+              float sum_weight_propz_propy = 0.0;
+              float sum_weight_prop_phi = 0.0;
+              float sum_weight_propz_prop_phi = 0.0;
+              float sum_weight_prop_global_z = 0.0;
+              float sum_weight_propz_prop_global_z = 0.0;
 
+              // cout << "looping over 1D hits in 1D segment" << std::endl;
+              // int rechitNumber = 0;
+              DTChamberId chamberHitId;
               // looping over 1d hits; propagate them and calulate residuals
               for (auto itDTHits1D: vDTSeg1D) {
+                // rechitNumber += 1;
+                // cout << "rechit number is " << rechitNumber << std::endl;
 
                 DetId hitId  = itDTHits1D->geographicalId(); // get global position of the hit
                 const DTSuperLayerId superLayerId(hitId.rawId());
@@ -444,18 +469,30 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
                 sum_weight_propz_propz += weight*prop_local_z*prop_local_z;
 
                 if ( superLayerId.superlayer() == 2  && vDTSeg1D.size() >= 3 ) {
-                    double residual_dy = prop_LP.y() - hit_LP.y();
+                    float residual_dy = prop_LP.y() - hit_LP.y();
                     data_.dx = 99999;
                     data_.dy = residual_dy;
                     sum_weight_propz_residual_dy += weight*prop_local_z*residual_dy;
+                    sum_weight_residual_dy += weight*residual_dy;
+                    chamberHitId = hitId;
                     tree->Fill();
                 }
 
                 if ((superLayerId.superlayer() == 1 || superLayerId.superlayer() == 3) && vDTSeg1D.size() >= 6) {
-                    double residual_dx = prop_LP.x() - hit_LP.x();
+                    float residual_dx = prop_LP.x() - hit_LP.x();
                     data_.dx = residual_dx;
                     data_.dy = 99999;
                     sum_weight_propz_residual_dx += weight*prop_local_z*residual_dx;
+                    sum_weight_residual_dx += weight*residual_dx;
+                    chamberHitId = hitId;
+                    // look at 2/4/10 and -2/4/10 in detail:
+                    if (chamberId.wheel() == 2 && chamberId.station() == 4 && chamberId.sector() == 9) {
+                        cout << "residual dx is " << residual_dx << std::endl;
+                        cout << "prop_local_z = " << prop_local_z << std::endl;
+                        // cout << "prop local position is (" << prop_LP.x() << ", " << prop_LP.y() << ")" << std::endl;
+                        // cout << "hit local position is (" << hit_LP.x() << ", " << hit_LP.y() << ")" << std::endl;
+                        cout << "weight is " << weight << std::endl;
+                    }
                     tree->Fill();
                 }
                 // TBMA prop x
@@ -467,34 +504,77 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
                 float prop_y = tsos_on_chamber.localPosition().y();
                 sum_weight_propy += weight*prop_y;
                 sum_weight_propz_propy += weight*prop_local_z*prop_y;
-                // tree->Fill();
+
+                // TBMA prop_phi
+                float prop_phi = tsos_on_chamber.globalPosition().phi();
+                sum_weight_prop_phi += weight*prop_phi;
+                sum_weight_propz_prop_phi += weight*prop_local_z*prop_phi;
+
+                // TBMA global_z
+                float prop_global_z = tsos_on_chamber.globalPosition().z();
+                sum_weight_prop_global_z += weight*prop_global_z;
+                sum_weight_propz_prop_global_z += weight*prop_local_z*prop_global_z;
+                // if (chamberId.wheel() == 2 && chamberId.station() == 4 && chamberId.sector() == 10) {
+                //     cout << "(prop_x, prop_y, prop_phi, prop_global_z) = " << "(" << prop_x << ", " << prop_y << ", " << prop_phi << ", " << prop_global_z << ")" << std::endl;
+                // }
+
             }
             // fill chamber-level tree here
             // std::cout << "Begin smoothing! On Chamber " << CSCSeg->DTDetId() << std::endl;
-            float delta_res = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
-            float real_residual_dx = ((sum_weight_propz_propz * sum_weight_residual_dx) - (sum_weight_propz * sum_weight_propz_residual_dx)) / delta_res;
-            float real_residual_dy = ((sum_weight_propz_propz * sum_weight_residual_dy) - (sum_weight_propz * sum_weight_propz_residual_dy)) / delta_res;
-            float real_slope_dxdz = ((sum_weight * sum_weight_propz_residual_dx) - (sum_weight_propz * sum_weight_residual_dx)) / delta_res;
-            float real_slope_dydz = ((sum_weight * sum_weight_propz_residual_dy) - (sum_weight_propz * sum_weight_residual_dy)) / delta_res;
+            float delta = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
+            float real_residual_dx = ((sum_weight_propz_propz * sum_weight_residual_dx) - (sum_weight_propz * sum_weight_propz_residual_dx)) / delta;
+            float real_residual_dy = ((sum_weight_propz_propz * sum_weight_residual_dy) - (sum_weight_propz * sum_weight_propz_residual_dy)) / delta;
+            float real_slope_dxdz = ((sum_weight * sum_weight_propz_residual_dx) - (sum_weight_propz * sum_weight_residual_dx)) / delta;
+            float real_slope_dydz = ((sum_weight * sum_weight_propz_residual_dy) - (sum_weight_propz * sum_weight_residual_dy)) / delta;
             // std::cout << "Smoothed delta/res_x/slope " << delta_res << "/" << real_residual << "/" << real_slope << std::endl;
 
-            float delta_propx = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
-            float real_x = ((sum_weight_propz_propz * sum_weight_propx) - (sum_weight_propz * sum_weight_propz_propx)) / delta_propx;
+            // float delta_propx = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
+            float real_x = ((sum_weight_propz_propz * sum_weight_propx) - (sum_weight_propz * sum_weight_propz_propx)) / delta;
             // float real_angle_x = ((sum_weight * sum_weight_propz_propx) - (sum_weight_propz * sum_weight_propx)) / delta_propx;
 
-            float delta_propy = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
-            float real_y = ((sum_weight_propz_propz * sum_weight_propy) - (sum_weight_propz * sum_weight_propz_propy)) / delta_propy;
+            // float delta_propy = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
+            float real_y = ((sum_weight_propz_propz * sum_weight_propy) - (sum_weight_propz * sum_weight_propz_propy)) / delta;
             // float real_angle_y = ((sum_weight * sum_weight_propz_propy) - (sum_weight_propz * sum_weight_propy)) / delta_propy;
 
+            // float delta = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
+            float real_phi = ((sum_weight_propz_propz * sum_weight_prop_phi) - (sum_weight_propz * sum_weight_propz_prop_phi)) / delta;
+            float real_global_z = ((sum_weight_propz_propz * sum_weight_prop_global_z) - (sum_weight_propz * sum_weight_propz_prop_global_z)) / delta;
+
+            if (chamberHitId.wheel() == 2 && chamberHitId.station() == 4 && chamberHitId.sector() == 9) {
+                cout << "chamber " << chamberHitId.wheel() << "/" << chamberHitId.station() << "/" << chamberHitId.sector() << std::endl;
+                cout << "sum_weight = " << sum_weight << std::endl;
+                cout << "sum_weight_propz_propz = " << sum_weight_propz_propz << std::endl;
+                cout << "sum_weight_propz = " << sum_weight_propz << std::endl;
+                cout << "sum_weight_residual_dx = " << sum_weight_residual_dx << std::endl;
+                cout << "sum_weight_propz_residual_dx = " << sum_weight_propz_residual_dx << std::endl;
+                cout << "smoothened variables:" << std::endl;
+                cout << "real residual dx is " << real_residual_dx << std::endl;
+                cout << "(real_x, real_y, real_phi, real_global_z) = " << "(" << real_x << ", " << real_y << ", " << real_phi << ", " << real_global_z << ")" << std::endl;
+                cout << "*****************************************" << std::endl;
+            }
+
+            // if (chamberHitId.station() == 4) {
+            //     cout << "smoothened dy for station 4 is " << real_residual_dy << std::endl;
+            // }
             data_sectorLevel_.res_dx = real_residual_dx;
-            data_sectorLevel_.res_dy = real_residual_dy;
+            if (chamberHitId.station() != 4) {
+                data_sectorLevel_.res_dy = real_residual_dy;
+            }
+            else {
+                data_sectorLevel_.res_dy = 9999.0;
+            }
             data_sectorLevel_.res_dxdz = real_slope_dxdz;
             data_sectorLevel_.res_dydz = real_slope_dydz;
             data_sectorLevel_.prop_local_x = real_x;
             data_sectorLevel_.prop_local_y = real_y;
+            data_sectorLevel_.prop_phi = real_phi;
+            data_sectorLevel_.global_z = real_global_z;
             data_sectorLevel_.pz = mu->pz();
             data_sectorLevel_.pt = mu->pt();
             data_sectorLevel_.charge = mu->charge();
+            data_sectorLevel_.location[0] = chamberHitId.wheel();
+            data_sectorLevel_.location[1] = chamberHitId.station();
+            data_sectorLevel_.location[2] = chamberHitId.sector();
             tree_sectorLevel->Fill();
         }
 
