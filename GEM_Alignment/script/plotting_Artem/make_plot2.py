@@ -1,8 +1,8 @@
 import ROOT, array, math
 
-imyFile = ROOT.TFile.Open("DTPlots/DT_tbma_cosmics.root", "READ")
+myFile = ROOT.TFile.Open("DTPlots/DT_tbma_collisionMC_allRes.root", "READ")
 #myFile = ROOT.TFile("CRUZET_march15.ROOT")
-myTree = myFile.Get("DT_tbma/Inner_Prop")
+myTree = myFile.Get("DT_tbma/Inner_Prop_ChamberLevel")
 
 # myHist = ROOT.TH1D("rdphi", "rdphi CRUZET R1", 100, -2, 2)
 # myHist.Sumw2()
@@ -38,16 +38,16 @@ canvas.SetWindowSize(500, 500)
 # canvas.SaveAs("AL2_hist_front.png")
 
 #2d profile
-for which_residual in ["dx", "dy"]:
+for which_residual in ["res_dx", "res_dy"]:
     for which_station in [1, 2, 3, 4]:
-        my2dprofile = ROOT.TProfile2D(which_residual + " vs global phi vs global z, staion" + str(which_station), which_residual + " vs global phi vs global z, staion" + str(which_station),  200, -pi, pi, 200, -700, 700, -5, 5)
+        my2dprofile = ROOT.TProfile2D(which_residual + " vs global phi vs global z, staion" + str(which_station), which_residual + " vs global phi vs global z, staion" + str(which_station),  200, -pi, pi, 200, -700, 700, -3, 3)
         my2dprofile.GetXaxis().SetTitle("global z")
         my2dprofile.GetYaxis().SetTitle("global phi")
         my2dprofile.GetZaxis().SetTitle(which_residual)
         my2dprofile.Sumw2()
-        myTree.Project(which_residual + " vs global phi vs global z, staion" + str(which_station), which_residual + ":prop_GP[2]:prop_global_phi", which_residual + " < 100 && prop_location[1] == " + str(which_station) )
+        myTree.Project(which_residual + " vs global phi vs global z, staion" + str(which_station), which_residual + ":global_z:prop_phi", which_residual + " < 100 && location[1] == " + str(which_station) )
         my2dprofile.Draw("colz")
-        canvas.SaveAs("DTPlots/stations/" + str(which_residual) + "_Station" + str(which_station) + ".png")
+        canvas.SaveAs("DTPlots/stations/collision_MC_052522/diff/ChamberLevel/" + str(which_residual) + "_Station" + str(which_station) + ".png")
 
 # myHist.SetDirectory(0)
 myFile.Close()
