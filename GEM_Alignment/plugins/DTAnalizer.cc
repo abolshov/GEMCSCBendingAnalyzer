@@ -363,74 +363,60 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
   }
   // std::cout << "Size of DT segment is " << AllDTSegments_Matches.size() << std::endl;
 
-// for (auto dtSeg: AllDTSegments_Matches) {
-//     std::cout << "rechit size is " << (dtSeg->recHits()).size() << std::endl;
-//     for (auto recHit: dtSeg->recHits()) {
-//         std::cout << "rechit local position is " << recHit->localPosition() << std::endl;
-//         for (auto recHit2 : recHit->recHits()){
-//             std::cout << "Yup i'm right" << std::endl;
-//         }
-//     }
-// }
-
 // 4D DT segment = 2 2D segments (x, slope), (y, slope)
 // choose 4D segment and loop over recHits
 // looping over 4D segments
-    for (auto dtSeg: AllDTSegments_Matches) {
+    for (auto dtSeg4D: AllDTSegments_Matches) {
+        DTChamberId sectorId = dtSeg4D->chamberId();
+        // cout << "chamber ID from 4D segment " << sectorId.wheel() << "/" << sectorId.station() << "/" << sectorId.sector() << std::endl;
+
+        // initialize sums for accumulation
+        float sum_weight_13 = 0.0; // for x layers
+        float sum_weight_2 = 0.0; // for y layers
+        float sum_weight_propz_13 = 0.0;
+        float sum_weight_propz_2 = 0.0;
+        float sum_weight_residual_dx = 0.0;
+        float sum_weight_residual_dy = 0.0;
+        float sum_weight_propz_propz_13 = 0.0;
+        float sum_weight_propz_propz_2 = 0.0;
+        float sum_weight_propz_residual_dx = 0;
+        float sum_weight_propz_residual_dy = 0;
+        float sum_weight_propx_13 = 0.0;
+        float sum_weight_propx_2 = 0.0;
+        float sum_weight_propz_propx_13 = 0.0;
+        float sum_weight_propz_propx_2 = 0.0;
+        float sum_weight_propy_13 = 0.0;
+        float sum_weight_propy_2 = 0.0;
+        float sum_weight_propz_propy_13 = 0.0;
+        float sum_weight_propz_propy_2 = 0.0;
+
         // get 2D segment from 4D segment
-        auto vDTSeg2D = dtSeg->recHits();
+        auto vDTSeg2D = dtSeg4D->recHits();
         // loop over contets of the 4D segment - 2D segments
         for(auto itDTSeg2D : vDTSeg2D){
     		  // get 1D segment from 2D segment
               auto vDTSeg1D = itDTSeg2D->recHits();
 
-              float sum_weight = 0.0;
-              float sum_weight_propz = 0.0;
-              float sum_weight_residual_dx = 0.0;
-              float sum_weight_residual_dy = 0.0;
-              float sum_weight_propz_propz = 0.0;
-              float sum_weight_propz_residual_dx = 0;
-              float sum_weight_propz_residual_dy = 0;
-              // int nRecHits_in_smoothing = 0; // Testing the TBMA method of CHAMBER RESIDUALS including slope
-              float sum_weight_propx = 0.0;
-              float sum_weight_propz_propx = 0.0;
-              float sum_weight_propy = 0.0;
-              float sum_weight_propz_propy = 0.0;
-              float sum_weight_prop_phi = 0.0;
-              float sum_weight_propz_prop_phi = 0.0;
-              float sum_weight_prop_global_z = 0.0;
-              float sum_weight_propz_prop_global_z = 0.0;
-
-              // cout << "looping over 1D hits in 1D segment" << std::endl;
-              // int rechitNumber = 0;
-              DTChamberId chamberHitId;
               // looping over 1d hits; propagate them and calulate residuals
               for (auto itDTHits1D: vDTSeg1D) {
-                // rechitNumber += 1;
-                // cout << "rechit number is " << rechitNumber << std::endl;
 
                 DetId hitId  = itDTHits1D->geographicalId(); // get global position of the hit
                 const DTSuperLayerId superLayerId(hitId.rawId());
     		    const DTLayerId layerId(hitId.rawId());
                 DTChamberId chamberId = DTChamberId(hitId);
-                // cout << "Chamber ID is " << chamberId.wheel() << " " << chamberId.station() << " " << chamberId.sector() << std::endl;
 
                 //Extrapolate the propagated position for residual
     			TrajectoryStateOnSurface tsos_on_chamber;
     			tsos_on_chamber = propagator->propagate( tsos_from_tracker, DTGeometry_->idToDet(hitId)->surface() );
 
-                // if ( tsos_on_chamber.isValid() ) {
-    			//     std::cout << " extrapolation localPosition()"
-    			// 	<< " x: " << tsos_on_chamber.localPosition().x()
-    			// 	<< " y: " << tsos_on_chamber.localPosition().y()
-    			// 	<< " z: " << tsos_on_chamber.localPosition().z() << std::endl;
-    		    // }
-
                 // filling TTree
-                LocalPoint hit_LP = itDTHits1D->localPosition();
+                // LocalPoint hit_LP = itDTHits1D->localPosition();
                 GlobalPoint hit_GP = DTGeometry_->idToDet(hitId)->toGlobal(itDTHits1D->localPosition());
-                LocalPoint prop_LP = tsos_on_chamber.localPosition();
+                // LocalPoint prop_LP = tsos_on_chamber.localPosition();
                 GlobalPoint prop_GP = tsos_on_chamber.globalPosition();
+
+                LocalPoint hit_LP = DTGeometry_->idToDet(sectorId)->toLocal(DTGeometry_->idToDet(hitId)->toGlobal(itDTHits1D->localPosition()));
+                LocalPoint prop_LP = DTGeometry_->idToDet(sectorId)->toLocal(DTGeometry_->idToDet(hitId)->toGlobal(tsos_on_chamber.localPosition()));
 
                 data_.prop_GP[0] = prop_GP.x();
                 data_.prop_GP[1] = prop_GP.y();
@@ -460,21 +446,31 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
                 data_.rechit_location[2] = chamberId.sector();
                 // data_.rechit_location[3] = dtDetId.superlayer
 
-                // error matrix
-                float xx = itDTHits1D->localPositionError().xx();
-                float weight = 1.0/xx;
-                float prop_local_z = DTGeometry_->idToDet(hitId)->toLocal((tsos_on_chamber.globalPosition())).z();
-                sum_weight += weight;
-                sum_weight_propz += weight*prop_local_z;
-                sum_weight_propz_propz += weight*prop_local_z*prop_local_z;
-
                 if ( superLayerId.superlayer() == 2  && vDTSeg1D.size() >= 3 ) {
                     float residual_dy = prop_LP.y() - hit_LP.y();
                     data_.dx = 99999;
                     data_.dy = residual_dy;
-                    sum_weight_propz_residual_dy += weight*prop_local_z*residual_dy;
-                    sum_weight_residual_dy += weight*residual_dy;
-                    chamberHitId = hitId;
+                    float xx = itDTHits1D->localPositionError().xx();
+                    float weight_2 = 1/xx;
+                    sum_weight_2 += weight_2;
+
+                    // float prop_local_z = DTGeometry_->idToDet(hitId)->toLocal((tsos_on_chamber.globalPosition())).z();
+                    float prop_local_z = prop_LP.z();
+                    sum_weight_propz_2 += weight_2*prop_local_z;
+                    sum_weight_propz_propz_2 += weight_2*prop_local_z*prop_local_z;
+                    sum_weight_propz_residual_dy += weight_2*prop_local_z*residual_dy;
+                    sum_weight_residual_dy += weight_2*residual_dy;
+
+                    // float prop_x = tsos_on_chamber.localPosition().x();
+                    float prop_x = prop_LP.x();
+                    sum_weight_propx_2 += weight_2*prop_x;
+                    sum_weight_propz_propx_2 += weight_2*prop_local_z*prop_x;
+
+                    // float prop_y = tsos_on_chamber.localPosition().y();
+                    float prop_y = prop_LP.y();
+                    sum_weight_propy_2 += weight_2*prop_y;
+                    sum_weight_propz_propy_2 += weight_2*prop_local_z*prop_y;
+
                     tree->Fill();
                 }
 
@@ -482,102 +478,88 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
                     float residual_dx = prop_LP.x() - hit_LP.x();
                     data_.dx = residual_dx;
                     data_.dy = 99999;
-                    sum_weight_propz_residual_dx += weight*prop_local_z*residual_dx;
-                    sum_weight_residual_dx += weight*residual_dx;
-                    chamberHitId = hitId;
-                    // look at 2/4/10 and -2/4/10 in detail:
+                    float xx = itDTHits1D->localPositionError().xx();
+                    float weight_13 = 1/xx;
+                    sum_weight_13 += weight_13;
+
+                    // float prop_local_z = DTGeometry_->idToDet(hitId)->toLocal((tsos_on_chamber.globalPosition())).z();
+                    float prop_local_z = prop_LP.z();
+                    sum_weight_propz_13 += weight_13*prop_local_z;
+                    sum_weight_propz_propz_13 += weight_13*prop_local_z*prop_local_z;
+                    sum_weight_propz_residual_dx += weight_13*prop_local_z*residual_dx;
+                    sum_weight_residual_dx += weight_13*residual_dx;
+
+                    // float prop_x = tsos_on_chamber.localPosition().x();
+                    float prop_x = prop_LP.x();
+                    sum_weight_propx_13 += weight_13*prop_x;
+                    sum_weight_propz_propx_13 += weight_13*prop_local_z*prop_x;
+
+                    // float prop_y = tsos_on_chamber.localPosition().y();
+                    float prop_y = prop_LP.y();
+                    sum_weight_propy_13 += weight_13*prop_y;
+                    sum_weight_propz_propy_13 += weight_13*prop_local_z*prop_y;
+
                     if (chamberId.wheel() == 2 && chamberId.station() == 4 && chamberId.sector() == 9) {
                         cout << "residual dx is " << residual_dx << std::endl;
                         cout << "prop_local_z = " << prop_local_z << std::endl;
-                        // cout << "prop local position is (" << prop_LP.x() << ", " << prop_LP.y() << ")" << std::endl;
-                        // cout << "hit local position is (" << hit_LP.x() << ", " << hit_LP.y() << ")" << std::endl;
-                        cout << "weight is " << weight << std::endl;
+                        cout << "prop local position is (" << prop_LP.x() << ", " << prop_LP.y() << ")" << std::endl;
+                        cout << "hit local position is (" << hit_LP.x() << ", " << hit_LP.y() << ")" << std::endl;
+                        cout << "weight is " << weight_13 << std::endl;
                     }
+
                     tree->Fill();
                 }
-                // TBMA prop x
-                float prop_x = tsos_on_chamber.localPosition().x();
-                sum_weight_propx += weight*prop_x;
-                sum_weight_propz_propx += weight*prop_local_z*prop_x;
-
-                //TBMA prop y
-                float prop_y = tsos_on_chamber.localPosition().y();
-                sum_weight_propy += weight*prop_y;
-                sum_weight_propz_propy += weight*prop_local_z*prop_y;
-
-                // TBMA prop_phi
-                float prop_phi = tsos_on_chamber.globalPosition().phi();
-                sum_weight_prop_phi += weight*prop_phi;
-                sum_weight_propz_prop_phi += weight*prop_local_z*prop_phi;
-
-                // TBMA global_z
-                float prop_global_z = tsos_on_chamber.globalPosition().z();
-                sum_weight_prop_global_z += weight*prop_global_z;
-                sum_weight_propz_prop_global_z += weight*prop_local_z*prop_global_z;
-                // if (chamberId.wheel() == 2 && chamberId.station() == 4 && chamberId.sector() == 10) {
-                //     cout << "(prop_x, prop_y, prop_phi, prop_global_z) = " << "(" << prop_x << ", " << prop_y << ", " << prop_phi << ", " << prop_global_z << ")" << std::endl;
-                // }
-
             }
-            // fill chamber-level tree here
-            // std::cout << "Begin smoothing! On Chamber " << CSCSeg->DTDetId() << std::endl;
-            float delta = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
-            float real_residual_dx = ((sum_weight_propz_propz * sum_weight_residual_dx) - (sum_weight_propz * sum_weight_propz_residual_dx)) / delta;
-            float real_residual_dy = ((sum_weight_propz_propz * sum_weight_residual_dy) - (sum_weight_propz * sum_weight_propz_residual_dy)) / delta;
-            float real_slope_dxdz = ((sum_weight * sum_weight_propz_residual_dx) - (sum_weight_propz * sum_weight_residual_dx)) / delta;
-            float real_slope_dydz = ((sum_weight * sum_weight_propz_residual_dy) - (sum_weight_propz * sum_weight_residual_dy)) / delta;
-            // std::cout << "Smoothed delta/res_x/slope " << delta_res << "/" << real_residual << "/" << real_slope << std::endl;
+        }
+        // calculate smoothened quantities here
+        float delta_2 = (sum_weight_2 * sum_weight_propz_propz_2) - (sum_weight_propz_2 * sum_weight_propz_2);
+        float delta_13 = (sum_weight_13 * sum_weight_propz_propz_13) - (sum_weight_propz_13 * sum_weight_propz_13);
+        float real_residual_dx = ((sum_weight_propz_propz_13 * sum_weight_residual_dx) - (sum_weight_propz_13 * sum_weight_propz_residual_dx)) / delta_13;
+        float real_residual_dy = ((sum_weight_propz_propz_2 * sum_weight_residual_dy) - (sum_weight_propz_2 * sum_weight_propz_residual_dy)) / delta_2;
+        float real_slope_dxdz = ((sum_weight_13 * sum_weight_propz_residual_dx) - (sum_weight_propz_13 * sum_weight_residual_dx)) / delta_13;
+        float real_slope_dydz = ((sum_weight_2 * sum_weight_propz_residual_dy) - (sum_weight_propz_2 * sum_weight_residual_dy)) / delta_2;
 
-            // float delta_propx = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
-            float real_x = ((sum_weight_propz_propz * sum_weight_propx) - (sum_weight_propz * sum_weight_propz_propx)) / delta;
-            // float real_angle_x = ((sum_weight * sum_weight_propz_propx) - (sum_weight_propz * sum_weight_propx)) / delta_propx;
+        float real_x = ((sum_weight_propz_propz_13 * sum_weight_propx_13) - (sum_weight_propz_13 * sum_weight_propz_propx_13)) / delta_13;
+        float real_y = ((sum_weight_propz_propz_2 * sum_weight_propy_2) - (sum_weight_propz_2 * sum_weight_propz_propy_2)) / delta_2;
 
-            // float delta_propy = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
-            float real_y = ((sum_weight_propz_propz * sum_weight_propy) - (sum_weight_propz * sum_weight_propz_propy)) / delta;
-            // float real_angle_y = ((sum_weight * sum_weight_propz_propy) - (sum_weight_propz * sum_weight_propy)) / delta_propy;
+        LocalPoint sectorLevelPosLocal(real_x, real_y, 0.0);
+        GlobalPoint sectorLevelPosGlobal = DTGeometry_->idToDet(sectorId)->toGlobal(sectorLevelPosLocal);
 
-            // float delta = (sum_weight * sum_weight_propz_propz) - (sum_weight_propz * sum_weight_propz);
-            float real_phi = ((sum_weight_propz_propz * sum_weight_prop_phi) - (sum_weight_propz * sum_weight_propz_prop_phi)) / delta;
-            float real_global_z = ((sum_weight_propz_propz * sum_weight_prop_global_z) - (sum_weight_propz * sum_weight_propz_prop_global_z)) / delta;
-
-            if (chamberHitId.wheel() == 2 && chamberHitId.station() == 4 && chamberHitId.sector() == 9) {
-                cout << "chamber " << chamberHitId.wheel() << "/" << chamberHitId.station() << "/" << chamberHitId.sector() << std::endl;
-                cout << "sum_weight = " << sum_weight << std::endl;
-                cout << "sum_weight_propz_propz = " << sum_weight_propz_propz << std::endl;
-                cout << "sum_weight_propz = " << sum_weight_propz << std::endl;
+        if (sectorId.wheel() == 2 && sectorId.station() == 4 && sectorId.sector() == 9) {
+                cout << "chamber " << sectorId.wheel() << "/" << sectorId.station() << "/" << sectorId.sector() << std::endl;
+                cout << "sum_weight_13 = " << sum_weight_13 << std::endl;
+                cout << "sum_weight_propz_propz_13 = " << sum_weight_propz_propz_13 << std::endl;
+                cout << "sum_weight_propz_13 = " << sum_weight_propz_13 << std::endl;
                 cout << "sum_weight_residual_dx = " << sum_weight_residual_dx << std::endl;
                 cout << "sum_weight_propz_residual_dx = " << sum_weight_propz_residual_dx << std::endl;
                 cout << "smoothened variables:" << std::endl;
                 cout << "real residual dx is " << real_residual_dx << std::endl;
-                cout << "(real_x, real_y, real_phi, real_global_z) = " << "(" << real_x << ", " << real_y << ", " << real_phi << ", " << real_global_z << ")" << std::endl;
+                cout << "(real_x, real_y, real_phi, real_global_z) = " << "(" << real_x << ", " << real_y << ", " << sectorLevelPosGlobal.phi() << ", " << sectorLevelPosGlobal.z() << ")" << std::endl;
                 cout << "*****************************************" << std::endl;
             }
 
-            // if (chamberHitId.station() == 4) {
-            //     cout << "smoothened dy for station 4 is " << real_residual_dy << std::endl;
-            // }
-            data_sectorLevel_.res_dx = real_residual_dx;
-            if (chamberHitId.station() != 4) {
-                data_sectorLevel_.res_dy = real_residual_dy;
-            }
-            else {
-                data_sectorLevel_.res_dy = 9999.0;
-            }
-            data_sectorLevel_.res_dxdz = real_slope_dxdz;
-            data_sectorLevel_.res_dydz = real_slope_dydz;
-            data_sectorLevel_.prop_local_x = real_x;
-            data_sectorLevel_.prop_local_y = real_y;
-            data_sectorLevel_.prop_phi = real_phi;
-            data_sectorLevel_.global_z = real_global_z;
-            data_sectorLevel_.pz = mu->pz();
-            data_sectorLevel_.pt = mu->pt();
-            data_sectorLevel_.charge = mu->charge();
-            data_sectorLevel_.location[0] = chamberHitId.wheel();
-            data_sectorLevel_.location[1] = chamberHitId.station();
-            data_sectorLevel_.location[2] = chamberHitId.sector();
-            tree_sectorLevel->Fill();
-        }
 
+        // filling the sector level tree
+        data_sectorLevel_.res_dx = real_residual_dx;
+        if (sectorId.station() != 4) {
+            data_sectorLevel_.res_dy = real_residual_dy;
+        }
+        else {
+            data_sectorLevel_.res_dy = 9999.0;
+        }
+        data_sectorLevel_.res_dxdz = real_slope_dxdz;
+        data_sectorLevel_.res_dydz = real_slope_dydz;
+        data_sectorLevel_.prop_local_x = real_x;
+        data_sectorLevel_.prop_local_y = real_y;
+        data_sectorLevel_.prop_phi = sectorLevelPosGlobal.phi();
+        data_sectorLevel_.global_z = sectorLevelPosGlobal.z();
+        data_sectorLevel_.pz = mu->pz();
+        data_sectorLevel_.pt = mu->pt();
+        data_sectorLevel_.charge = mu->charge();
+        data_sectorLevel_.location[0] = sectorId.wheel();
+        data_sectorLevel_.location[1] = sectorId.station();
+        data_sectorLevel_.location[2] = sectorId.sector();
+        tree_sectorLevel->Fill();
     }
 
 }
