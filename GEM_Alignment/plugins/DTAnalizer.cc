@@ -520,7 +520,13 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
         float real_slope_dydz = ((sum_weight_2 * sum_weight_propz_residual_dy) - (sum_weight_propz_2 * sum_weight_residual_dy)) / delta_2;
 
         float real_x = ((sum_weight_propz_propz_13 * sum_weight_propx_13) - (sum_weight_propz_13 * sum_weight_propz_propx_13)) / delta_13;
-        float real_y = ((sum_weight_propz_propz_2 * sum_weight_propy_2) - (sum_weight_propz_2 * sum_weight_propz_propy_2)) / delta_2;
+        float real_y = 0.0;
+        if (sectorId.station() == 4) {
+            real_y = ((sum_weight_propz_propz_13 * sum_weight_propy_13) - (sum_weight_propz_13 * sum_weight_propz_propy_13)) / delta_13;
+        }
+        else {
+            real_y = ((sum_weight_propz_propz_2 * sum_weight_propy_2) - (sum_weight_propz_2 * sum_weight_propz_propy_2)) / delta_2;
+        }
 
         LocalPoint sectorLevelPosLocal(real_x, real_y, 0.0);
         GlobalPoint sectorLevelPosGlobal = DTGeometry_->idToDet(sectorId)->toGlobal(sectorLevelPosLocal);
