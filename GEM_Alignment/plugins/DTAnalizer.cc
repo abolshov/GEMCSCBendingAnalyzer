@@ -68,7 +68,11 @@ struct DT_tbma_data_sectorLevel {
     float res_dydz;
     float prop_local_x;
     float prop_local_y;
-    // float prop_gp[3];
+
+    // next two are needed for the fitter
+    float sectorLevel_LP[3];
+    float sectorLevel_GP[3];
+
     float global_z;
     float prop_phi;
     int location[3];
@@ -85,9 +89,10 @@ void DT_tbma_data_sectorLevel::init() {
     res_dydz = 9999.0;
     prop_local_x = 9999.0;
     prop_local_y = 9999.0;
-    // for (size_t i = 0; i < 3; i++) {
-    //     prop_gp[i] = 9999.0;
-    // }
+    for (size_t i = 0; i < 3; i++) {
+        sectorLevel_LP[i] = 9999.0;
+        sectorLevel_GP[i] = 9999.0;
+    }
     prop_phi = 9999.0;
     for (size_t i = 0; i < 3; i++) {
         location[i] = 9999;
@@ -108,10 +113,11 @@ TTree* DT_tbma_data_sectorLevel::book(TTree* t) {
     t->Branch("res_dydz", &res_dydz);
     t->Branch("prop_local_x", &prop_local_x);
     t->Branch("prop_local_y", &prop_local_y);
-    // t->Branch("prop_gp", &prop_gp, "prop_gp[3] (x,y,z)/F");
     t->Branch("prop_phi", &prop_phi);
     t->Branch("location", &location, "location[3] (wheel, station, sector)/I");
     t->Branch("global_z", &global_z);
+    t->Branch("sectorLevel_LP", &sectorLevel_LP, "sectorLevel_LP[3] (x,y,z)/F");
+    t->Branch("sectorLevel_GP", &sectorLevel_GP, "sectorLevel_GP[3] (x,y,z)/F");
     t->Branch("charge", &charge);
     t->Branch("pz", &pz);
     t->Branch("pt", &pt);
@@ -557,6 +563,12 @@ void DT_tbma::propagate(const reco::Muon* mu, const edm::Event& iEvent, int i){
         data_sectorLevel_.res_dydz = real_slope_dydz;
         data_sectorLevel_.prop_local_x = real_x;
         data_sectorLevel_.prop_local_y = real_y;
+        data_sectorLevel_.sectorLevel_LP[0] = real_x;
+        data_sectorLevel_.sectorLevel_LP[1] = real_y;
+        data_sectorLevel_.sectorLevel_LP[2] = 0.0;
+        data_sectorLevel_.sectorLevel_GP[0] = sectorLevelPosGlobal.x();
+        data_sectorLevel_.sectorLevel_GP[1] = sectorLevelPosGlobal.y();
+        data_sectorLevel_.sectorLevel_GP[2] = sectorLevelPosGlobal.z();
         data_sectorLevel_.prop_phi = sectorLevelPosGlobal.phi();
         data_sectorLevel_.global_z = sectorLevelPosGlobal.z();
         data_sectorLevel_.pz = mu->pz();
