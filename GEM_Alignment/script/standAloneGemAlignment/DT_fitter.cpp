@@ -84,7 +84,7 @@ void MuonResiduals6DOFFitter_FCN(int &npar, double *gin, double &fval, double *p
   fval = 0.0;
   for (Long64_t i=0; i<mEvents; i++) {
     tt->GetEntry(i);
-    int station = mLocation[1];
+    // int station = mLocation[1]; this parameter is not passed to this function in contrast to e.g. mLocalPoint. Why?
     double residual_dx;
     double residual_dy;
     double residual_dxdz;
@@ -97,40 +97,63 @@ void MuonResiduals6DOFFitter_FCN(int &npar, double *gin, double &fval, double *p
     double residpeak_y;
     double slopepeak_x;
     double slopepeak_y;
-    // if station 4 only do dx fit
-    if (station == 4) {
-        residual_dx = mResidual_dx;
-        residual_dxdz = mResidual_dxdz;
-        residpeak_x = getResidual_dx(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
-        slopepeak_x = getResidual_dxdz(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
-        fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dx, residpeak_x, sig_x);
-        fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dxdz, slopepeak_x, sig_dxdz);
-        // add MuonResidualsFitter_logPureGaussian function
-    }
-    else {
-        residual_dx = mResidual_dx;
-        residual_dy = mResidual_dy;
-        residual_dxdz = mResidual_dxdz;
-        residual_dydz = mResidual_dydz;
-        residpeak_x = getResidual_dx(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
-        residpeak_y = getResidual_dy(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
-        slopepeak_x = getResidual_dxdz(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
-        slopepeak_y = getResidual_dydz(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
-        fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dx, residpeak_x, sig_x);
-        fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dy, residpeak_y, sig_y);
-        fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dxdz, slopepeak_x, sig_dxdz);
-        fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dydz, slopepeak_y, sig_dydz);
-    }
-    // need to figure out how to increment this fval thing; should I use 2d gaussian function?
-    //fval += -1.*MuonResidualsFitter_logPureGaussian(residual, residpeak, sig);
+    residual_dx = mResidual_dx;
+    residual_dy = mResidual_dy;
+    residual_dxdz = mResidual_dxdz;
+    residual_dydz = mResidual_dydz;
+    residpeak_x = getResidual_dx(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
+    residpeak_y = getResidual_dy(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
+    slopepeak_x = getResidual_dxdz(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
+    slopepeak_y = getResidual_dydz(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
+    fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dx, residpeak_x, sig_x);
+    fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dy, residpeak_y, sig_y);
+    fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dxdz, slopepeak_x, sig_dxdz);
+    fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dydz, slopepeak_y, sig_dydz);
+  }
+}
+
+void MuonResiduals6DOFFitter_FCN_station_4(int &npar, double *gin, double &fval, double *par, int iflag) {
+  const double delta_x = par[0];
+  const double delta_y = par[1];
+  const double delta_z = par[2];
+  const double delta_phi_x = par[3];
+  const double delta_phi_y = par[4];
+  const double delta_phi_z = par[5];
+  const double sig_x = par[6];
+  const double sig_y = par[7];
+  const double sig_dxdz = par[8];
+  const double sig_dydz = par[9];
+
+  fval = 0.0;
+  for (Long64_t i=0; i<mEvents; i++) {
+    tt->GetEntry(i);
+    double residual_dx;
+    double residual_dxdz;
+    double track_x = mLocalPoint[0];
+    double track_y = mLocalPoint[1];
+    double track_dxdz = mResidual_dxdz;
+    double track_dydz = 0.0; // need to initialze y slope by zero in station 4 to calculate slopepeak_x correctly, since all getResidual_ functions have the same signature
+    double residpeak_x;
+    double slopepeak_x;
+    residual_dx = mResidual_dx;
+    residual_dxdz = mResidual_dxdz;
+    residpeak_x = getResidual_dx(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
+    slopepeak_x = getResidual_dxdz(delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, track_x, track_y, track_dxdz, track_dydz);
+    fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dx, residpeak_x, sig_x);
+    fval += -1.0*MuonResidualsFitter_logPureGaussian(residual_dxdz, slopepeak_x, sig_dxdz);
   }
 }
 
 void doFit(bool do_delta_x, bool do_delta_y, bool do_delta_z,
-    bool do_delta_phi_x, bool do_delta_phi_y, bool do_delta_phi_z)
+    bool do_delta_phi_x, bool do_delta_phi_y, bool do_delta_phi_z, int station)
   {
       TMinuit mfit(10);
-      mfit.SetFCN(MuonResiduals6DOFFitter_FCN);
+      if (station == 4) {
+          mfit.SetFCN(MuonResiduals6DOFFitter_FCN_station_4);
+      }
+      else {
+          mfit.SetFCN(MuonResiduals6DOFFitter_FCN);
+      }
       // par[10] = {delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z, sig_x, sig_y, sig_dxdz, sig_dydz}
       double par[10] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 0.5};
       mfit.DefineParameter(0, "delta_x", par[0], 0.1, 0, 0);
@@ -150,12 +173,12 @@ void doFit(bool do_delta_x, bool do_delta_y, bool do_delta_z,
       mfit.FixParameter(8);
       mfit.FixParameter(9);
 
-      if (!do_delta_x) mfit.FixParameter(0);
-      if (!do_delta_y) mfit.FixParameter(1);
-      if (!do_delta_z) mfit.FixParameter(2);
-      if (!do_delta_phi_x) mfit.FixParameter(3);
-      if (!do_delta_phi_y) mfit.FixParameter(4);
-      if (!do_delta_phi_z) mfit.FixParameter(5);
+      if (do_delta_x == false) mfit.FixParameter(0);
+      if (do_delta_y == false) mfit.FixParameter(1);
+      if (do_delta_z == false) mfit.FixParameter(2);
+      if (do_delta_phi_x == false) mfit.FixParameter(3);
+      if (do_delta_phi_y == false) mfit.FixParameter(4);
+      if (do_delta_phi_z == false) mfit.FixParameter(5);
 
       double arglist[10];
       int ierflg;
@@ -192,7 +215,8 @@ void doFit(bool do_delta_x, bool do_delta_y, bool do_delta_z,
         ierflg = 0;
         mfit.mnexcm("HESSE", arglist, 0, ierflg);
       }
-      for (int i = 0;  i < 3;  i++){
+      // i<6 for each of 6 misalignments we're fitting
+      for (int i = 0;  i < 6;  i++){
         double v,e;
         mfit.GetParameter(i,v,e);
         mResult[i] = v;
@@ -211,7 +235,7 @@ int main(){
     TFile* tmpTF = new TFile("tmp1.root", "recreate");
     cout << "Copying Tree" << endl;
     // Basic cut on full tree. Which cut should I impose for DTs?
-    TTree *cutEn = tmpTr->CopyTree(Form("pt > 5 && abs(res_dx) < 100 && (abs(res_dy) < 100 || location[1] == 4)"));
+    TTree *cutEn = tmpTr->CopyTree(Form("pt > 5 && abs(res_dx) < 100 && (abs(res_dy) < 100 && abs(res_dxdz) < 100 && abs(res_dydz) < 100 || location[1] == 4)"));
     cout << "Copied" << endl;
     cout << "Closing input" << endl;
     tf->Close();
@@ -226,12 +250,6 @@ int main(){
     ofstream myfile;
     myfile.open(Form("out.csv"));
     double delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z;
-
-    // set parameters which we do not minimize to zero:
-    // none for us
-    // delta_z = 0.0;
-    // delta_phi_x = 0.0;
-    // delta_phi_y = 0.0;
 
     // choose which dof we align
     bool do_delta_x = true;
@@ -263,16 +281,15 @@ int main(){
             {
 
                 //copying tree corresponding to the current sector
-                TFile* tmpTF = new TFile("tmp2.root", "recreate");
+                TFile* tmpTF1 = new TFile("tmp2.root", "recreate");
                 TString cut = Form("location[0] == %i && location[1] == %i && location[2] == %i", wheel, station, sector);
                 TTree* tt_tmp = cutEn->CopyTree(Form(cut));
                 cout << "Entries in sector " << sector << "  are " << tt_tmp->GetEntries() << endl;
                 TString sectorInfo = Form("%i/%i/%i", wheel, station, sector);
 
-                // define TH1F here and extract some parameters from the histogram; still need to figure it out
+                // define TH1F here and extract some parameters from the histogram;
                 // extrat sigma and mean value needed for minimization
 
-                // inseert if (station == 4) {...} here
                 TH1F *h_x = new TH1F("h_x", "h_x title", 100, -20, 20);
                 tt_tmp->Project("h_x", "res_dx", "");
 
@@ -280,8 +297,8 @@ int main(){
                 f_x.SetParLimits(1, -2, 2);
                 f_x.SetParLimits(2, 0, 2);
                 h_x->Fit("f_x", "R");
-                double fitMean_x = f_x.GetParameter(1);
-                double fitStd_x = f_x.GetParameter(2);
+                float fitMean_x = f_x.GetParameter(1);
+                float fitStd_x = f_x.GetParameter(2);
 
                 TH1F *h_slope_x = new TH1F("h_slope_x", "h_slope_x title", 100, -20, 20);
                 tt_tmp->Project("h_slope_x", "res_dxdz", "");
@@ -290,11 +307,11 @@ int main(){
                 f_slope_x.SetParLimits(1, -2, 2);
                 f_slope_x.SetParLimits(2, 0, 2);
                 h_slope_x->Fit("f_slope_x", "R");
-                double fitMean_slope_x = f_slope_x.GetParameter(1);
-                double fitStd_slope_x = f_slope_x.GetParameter(2);
+                float fitMean_slope_x = f_slope_x.GetParameter(1);
+                float fitStd_slope_x = f_slope_x.GetParameter(2);
 
                 // conditiion for making smaller copy
-                TString cond = Form("res_dx <= (%d + (1.6*%d)) && res_dx >= (%d - (1.6*%d)) && res_dxdz <= (%d + (1.6*%d)) && res_dxdz >= (%d - (1.6*%d))", fitMean_x, fitStd_x, fitMean_x, fitStd_x, fitMean_slope_x, fitStd_slope_x, fitMean_slope_x, fitStd_slope_x);
+                TString cond = Form("res_dx <= (%f + (1.6*%f)) && res_dx >= (%f - (1.6*%f)) && res_dxdz <= (%f + (1.6*%f)) && res_dxdz >= (%f - (1.6*%f))", fitMean_x, fitStd_x, fitMean_x, fitStd_x, fitMean_slope_x, fitStd_slope_x, fitMean_slope_x, fitStd_slope_x);
 
                 if (station != 4) {
                     TH1F *h_y = new TH1F("h_y", "h_y title", 100, -20, 20);
@@ -304,8 +321,8 @@ int main(){
                     f_y.SetParLimits(1, -2, 2);
                     f_y.SetParLimits(2, 0, 2);
                     h_y->Fit("f_y", "R");
-                    double fitMean_y = f_y.GetParameter(1);
-                    double fitStd_y = f_y.GetParameter(2);
+                    float fitMean_y = f_y.GetParameter(1);
+                    float fitStd_y = f_y.GetParameter(2);
 
                     TH1F *h_slope_y = new TH1F("h_slope_y", "h_slope_y title", 100, -20, 20);
                     tt_tmp->Project("h_slope_y", "res_dydz", "");
@@ -314,18 +331,19 @@ int main(){
                     f_slope_y.SetParLimits(1, -2, 2);
                     f_slope_y.SetParLimits(2, 0, 2);
                     h_slope_y->Fit("f_slope_y", "R");
-                    double fitMean_slope_y = f_slope_y.GetParameter(1);
-                    double fitStd_slope_y = f_slope_y.GetParameter(2);
+                    float fitMean_slope_y = f_slope_y.GetParameter(1);
+                    float fitStd_slope_y = f_slope_y.GetParameter(2);
 
-                    cond.Append(Form(" && res_dy <= (%d + (1.6*%d)) && res_dy >= (%d - (1.6*%d)) && res_dydz <= (%d + (1.6*%d)) && res_dydz >= (%d - (1.6*%d))", fitMean_y, fitStd_y, fitMean_y, fitStd_y, fitMean_slope_y, fitStd_slope_y, fitMean_slope_y, fitStd_slope_y));
+                    cond.Append(Form(" && res_dy <= (%f + (1.6*%f)) && res_dy >= (%f - (1.6*%f)) && res_dydz <= (%f + (1.6*%f)) && res_dydz >= (%f - (1.6*%f))", fitMean_y, fitStd_y, fitMean_y, fitStd_y, fitMean_slope_y, fitStd_slope_y, fitMean_slope_y, fitStd_slope_y));
                 }
 
                 cout << "Starting small copy" << endl;
-                tt = tt_tmp->CopyTree(cond);
+                tt = tt_tmp->CopyTree(Form(cond));
+                cout << "Number of entries in the small copy is " << tt->GetEntries() << endl;
 
                 if (tt->GetEntries() == 0) {						//If there are no events on the chamber it is skipped
                   myfile << sectorInfo << ", " << 0 << ", " << 0 << ", " << 0 << ", " << 0 << ", " << 0 << ", " << 0 << ", " << 0 << "\n";
-                  delete tmpTF;
+                  delete tmpTF1;
                   delete tt_tmp;
                   continue;
                 }
@@ -338,7 +356,7 @@ int main(){
                 tt->SetBranchAddress("sectorLevel_GP", &mGlobalPoint);
                 tt->SetBranchAddress("location", &mLocation);
                 mEvents = tt->GetEntries();
-                doFit(do_delta_x, do_delta_y, do_delta_z, do_delta_phi_x, do_delta_phi_y, do_delta_phi_z);
+                doFit(do_delta_x, do_delta_y, do_delta_z, do_delta_phi_x, do_delta_phi_y, do_delta_phi_z, station);
                 delta_x = mResult[0];
                 delta_y = mResult[1];
                 delta_z = mResult[2];
@@ -347,7 +365,7 @@ int main(){
                 delta_phi_z = mResult[5];
                 myfile << sectorInfo << ", " << delta_x << ", " << delta_y << ", " << delta_z << ", " << delta_phi_x << ", " << delta_phi_y << ", " << delta_phi_z << ", " << mEvents << "\n";
                 delete tt_tmp;
-                delete tmpTF;
+                delete tmpTF1;
 
             }
 
