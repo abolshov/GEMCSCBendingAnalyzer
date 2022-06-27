@@ -248,7 +248,7 @@ int main(){
     cout << "Entries in cutEn: " << cutEn->GetEntries() << endl;
 
     ofstream myfile;
-    myfile.open(Form("out.csv"));
+    myfile.open(Form("out_13-6dof_4-3dof.csv"));
     double delta_x, delta_y, delta_z, delta_phi_x, delta_phi_y, delta_phi_z;
 
     // choose which dof we align
@@ -272,9 +272,14 @@ int main(){
 
             cout << "Station " << station << ":" << endl;
             // y is not aligned in station 4, turn of fit of delta_y
+            // also some paper says that we should fix everything except delta_x, delta_phi_y, delta_phi_z
             if (station == 4) {
                 do_delta_y = false;
                 delta_y = 0.0;
+                do_delta_z = false;
+                delta_z = 0.0;
+                do_delta_phi_x = false;
+                delta_phi_x = 0.0;
             }
 
             for (int sector = 1; sector < 13; sector++)
@@ -371,6 +376,8 @@ int main(){
 
             //turn delta_y fit back on for all other stations
             do_delta_y = true;
+            do_delta_z = true;
+            do_delta_phi_x = true;
 
         }
     }
